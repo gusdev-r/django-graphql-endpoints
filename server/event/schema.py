@@ -6,7 +6,7 @@ from .models import Event
 from django.core.cache import cache
 
 
-def generate_cache_key(request, operation_name, variables, query):
+def generate_cache_key(operation_name, variables, query):
     key_parts = [
         "graphql",
         operation_name or "default",
@@ -14,7 +14,7 @@ def generate_cache_key(request, operation_name, variables, query):
         query,
     ]
 
-    key = hashlib.md5("".join(key_parts).enconde()).hexdigest()
+    key = hashlib.md5("".join(key_parts).encode()).hexdigest()
     return f"gql_{key}"
 
 
@@ -30,17 +30,14 @@ class Query(graphene.ObjectType):
     event_by_name = graphene.Field(EventType, name=graphene.String(required=True))
 
     def resolve_all_events(self, info):
-        context = info.context
-        request = context.get("request")
-
         cache_key = generate_cache_key(
-            request=request,
             operation_name=info.operation.name.value if info.operation.name else None,
             variables=info.variable_values,
             query=info.field_nodes[0].loc.source.body,
         )
         cached_result = cache.get(cache_key)
         if cached_result is not None:
+            print(f"Returned from cache with key: {cache_key}")
             return cached_result
 
         events = Event.objects.all()
